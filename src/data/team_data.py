@@ -87,7 +87,9 @@ class TeamData:
         previous_team_selection['selling_price'] /= VALUE_MULTIPLE
         previous_team_selection['purchase_price'] /= VALUE_MULTIPLE
 
-        return previous_team_selection[['selling_price', 'purchase_price', 'name']]
+        previous_team_selection['in_current_team'] = 1
+
+        return previous_team_selection[['selling_price', 'purchase_price', 'name', 'in_current_team']]
 
     def get_budget(self):
         """
@@ -143,5 +145,7 @@ def _add_player_names(team_data_df, player_data_df):
 
     combined['name'] = combined['first_name'] + '_' + combined['second_name']
     combined['name'] = combined['name'].str.lower()
+    combined['name'] = combined['name'].str.replace(' ', '_')
+    combined['name'] = combined['name'].str.replace('-', '_')
 
     return combined
