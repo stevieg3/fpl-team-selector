@@ -10,6 +10,7 @@
 *.h5
 *todo.txt
 *.DS_Store
+*Useful commands.md
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

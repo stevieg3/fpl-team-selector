@@ -10,11 +10,46 @@ app.config['JSON_AS_ASCII'] = False
 def api():
     content = request.get_json()
 
+    previous_gw = int(content['previous_gw'])
+    season = content['season']
     fpl_team_id = int(content['fpl_team_id'])
     fpl_email = content['fpl_email']
     fpl_password = content['fpl_password']
 
-    output_dict = team_selector.main(fpl_team_id, fpl_email, fpl_password)
+    output_dict = team_selector.main(
+        live=True,
+        previous_gw=previous_gw,
+        season=season,
+        save_selection=True,
+        fpl_team_id=fpl_team_id,
+        fpl_email=fpl_email,
+        fpl_password=fpl_password
+    )
+
+    return jsonify(output_dict)
+
+
+@app.route('/retro', methods=['GET'])
+def retro():
+    content = request.get_json()
+
+    previous_gw = int(content['previous_gw'])
+    season = content['season']
+    previous_team_selection_path = content['previous_team_selection_path']
+    budget = float(content['budget'])
+    available_chips = list(content['available_chips'])
+    available_transfers = int(content['available_transfers'])
+
+    output_dict = team_selector.main(
+        live=False,
+        previous_gw=previous_gw,
+        season=season,
+        save_selection=False,
+        previous_team_selection_path=previous_team_selection_path,
+        budget=budget,
+        available_chips=available_chips,
+        available_transfers=available_transfers
+    )
 
     return jsonify(output_dict)
 

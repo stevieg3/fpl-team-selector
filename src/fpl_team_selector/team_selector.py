@@ -4,8 +4,14 @@ import json
 
 import pandas as pd
 import numpy as np
+import pyarrow.parquet as pq
 
 from src.data.team_data import TeamData
+from src.data.s3_utilities import \
+    s3_filesystem, \
+    S3_BUCKET_PATH, \
+    GW_PREDICTIONS_SUFFIX, \
+    write_dataframe_to_s3
 from src.fpl_team_selector.solvers import \
     solve_starting_11_problem, \
     solve_fpl_team_selection_problem
@@ -89,31 +95,66 @@ Variables to include in team selected JSON.
 """
 
 
-def main(fpl_team_id, fpl_email, fpl_password, save_selection=False):
-    # team_data = TeamData(
-    #     fpl_team_id=fpl_team_id,
-    #     fpl_email=fpl_email,
-    #     fpl_password=fpl_password
-    # )
-    #
-    # previous_team_selection = team_data.get_previous_team_selection()
-    # budget = team_data.get_budget()
-    # available_chips = team_data.get_available_chips()
-    # available_transfers = team_data.get_available_transfers()
+def main(live, previous_gw, season, save_selection=False, **kwargs):
+    """
+    Function for making team selection.
 
-    # TODO Make it possible for manual assignment of parameters as well as live:
-    previous_team_selection = pd.read_parquet('gw28_v3_lstm_team_selections.parquet')
-    budget = 100.4
-    available_chips = []
-    available_transfers = 2
+    :param live: Boolean. True for live predictions, False for retro
+    :param previous_gw: Gameweek prior to the one you want to make a selection for
+    :param season: FPL season
+    :param save_selection: Boolean. Whether or not to save team selection to S3
+    :return: Dictionary containing selected team and transfer information
+    """
 
-    current_predictions = generate_input_dataframe(previous_team_selection=previous_team_selection)
+    if live:
+        fpl_team_id = kwargs['fpl_team_id']
+        fpl_email = kwargs['fpl_email']
+        fpl_password = kwargs['fpl_password']
+
+        team_data = TeamData(
+            fpl_team_id=fpl_team_id,
+            fpl_email=fpl_email,
+            fpl_password=fpl_password
+        )
+
+        previous_team_selection = team_data.get_previous_team_selection()
+        budget = team_data.get_budget()
+        available_chips = team_data.get_available_chips()
+        available_transfers = team_data.get_available_transfers()
+
+        logging.info(f"Budget: {budget}")
+        logging.info(f"Available chips: {available_chips}")
+        logging.info(f"Available transfers: {available_transfers}")
+
+    else:  # retro run
+        previous_team_selection_path = kwargs['previous_team_selection_path']
+        budget = kwargs['budget']
+        available_chips = kwargs['available_chips']
+        available_transfers = kwargs['available_transfers']
+
+        previous_team_selection = pq.read_table(
+            previous_team_selection_path,
+            filesystem=s3_filesystem
+        ).to_pandas()
+
+        logging.info(f"Budget: {budget}")
+        logging.info(f"Available chips: {available_chips}")
+        logging.info(f"Available transfers: {available_transfers}")
+
+    current_predictions = generate_input_dataframe(
+        previous_gw=previous_gw,
+        season=season,
+        previous_team_selection=previous_team_selection
+    )
 
     results = {}
 
     permutations = _find_permutations(available_transfers, available_chips)
 
+    logging.info(f'Possible permutations: {permutations}')
+
     for permutation in permutations:
+        logging.info(f"Working on permutation {permutation}")
         params = TEAM_SELECTION_PERMUTATIONS[permutation]
 
         selected_team_df, total_points = solve_fpl_team_selection_problem(
@@ -127,14 +168,21 @@ def main(fpl_team_id, fpl_email, fpl_password, save_selection=False):
 
         # Penalty incurred if number of transfers exceeds available free transfers
         transfers_made = int(15 - selected_team_df['in_current_team'].sum())
+        logging.info(f"Transfers made: {transfers_made}")
 
         excess_transfers = int(max(0, transfers_made - available_transfers))
+        if permutation == 'Wildcard':
+            excess_transfers = 0
+        logging.info(f"Excess transfers: {excess_transfers}")
 
         total_points -= POINTS_PENALTY * excess_transfers
 
         results[permutation] = (selected_team_df, total_points)
 
+        logging.info(f"Total points using permutation {permutation}: {results[permutation][1]}")
+
     best_permutation = max(results, key=lambda k: results[k][1])  # Team which gets max total points
+    logging.info(f"Best permutation: {best_permutation}")
 
     # Find chips used:
     chips_used = []
@@ -174,8 +222,14 @@ def main(fpl_team_id, fpl_email, fpl_password, save_selection=False):
     }
 
     if save_selection:
-        # TODO Add function to save output (best_selected_team_df)
-        pass
+        best_selected_team_df['gw'] = previous_gw + 1
+        best_selected_team_df['season'] = season
+        write_dataframe_to_s3(
+            best_selected_team_df,
+            s3_root_path=S3_BUCKET_PATH + '/gw_team_selections',
+            partition_cols=['season', 'gw']
+        )
+        logging.info("Saved team selection to S3")
 
     with open('example_api_output.json', 'w') as json_file:
         json.dump(output_dict, json_file, ensure_ascii=False)
@@ -249,16 +303,27 @@ def _find_permutations(available_transfers, available_chips):
     return permutations
 
 
-# TODO Change so that it loads latest available or finds next gameweek by current date
-# TODO Support loading from file and S3
-def _load_player_predictions(prediction_filepath=None):
+def _load_player_predictions(previous_gw, season):
     """
     Load saved player points predictions as Pandas DataFrame
-    :param prediction_filepath: Filepath to predictions parquet file
+    :param prediction_filepath: S3 path to predictions parquet file
     :return: Pandas DataFrame
     """
 
-    predictions = pd.read_parquet(prediction_filepath)
+    all_predictions = pq.read_table(
+        S3_BUCKET_PATH + GW_PREDICTIONS_SUFFIX + f'/season={season}',
+        filesystem=s3_filesystem
+    ).to_pandas()
+
+    all_predictions['season'] = season
+    all_predictions['gw'] = all_predictions['gw'].astype(int)
+
+    predictions = all_predictions[
+        (all_predictions['gw'] == previous_gw)
+    ]
+
+    logging.info(f'Using predictions from season {season}, GW {previous_gw}')
+
     if 'rank' in predictions.columns:
         predictions.drop('rank', inplace=True, axis=1)
 
@@ -293,16 +358,17 @@ def _get_prev_predictions_for_missing_players_in_previous_team(previous_predicti
         current_predictions_for_prev_team[current_predictions_for_prev_team['predictions'].isnull()][['name']],
         on='name',
         how='inner'
-    )  # TODO Need to ensure they are not substituted out - could give arbitrary number of points to guarantee selection
+    )
 
     return previous_predictions_missing_players
 
 
-def generate_input_dataframe(previous_team_selection):
+def generate_input_dataframe(previous_gw, season, previous_team_selection):
+    # TODO Will need to change for GW 1
+    current_predictions = _load_player_predictions(previous_gw=previous_gw+1, season=season)
+    previous_predictions = _load_player_predictions(previous_gw=previous_gw, season=season)
 
-    current_predictions = _load_player_predictions('gw29_v4_lstm_player_predictions.parquet')
-    previous_predictions = _load_player_predictions('gw28_v4_lstm_player_predictions.parquet')
-
+    previous_team_selection['in_current_team'] = 1
     previous_team_selection_names = previous_team_selection.copy()[['name', 'in_current_team']]
 
     current_predictions_for_prev_team = current_predictions.merge(previous_team_selection_names, on='name', how='inner')
