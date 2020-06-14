@@ -1,11 +1,18 @@
-from flask import Flask, request, jsonify
+import os
+
+from flask import \
+    Flask, \
+    request, \
+    jsonify
 
 from src.fpl_team_selector import team_selector
 
 app = Flask(__name__)
 app.config['JSON_AS_ASCII'] = False
 
+SG_TEAM_ID = os.environ['SG_TEAM_ID']
 
+# TODO Make API access private
 @app.route('/api', methods=['GET'])
 def api():
     content = request.get_json()
@@ -16,11 +23,17 @@ def api():
     fpl_email = content['fpl_email']
     fpl_password = content['fpl_password']
 
+    # Only save team selection to S3 if it is my own team
+    if fpl_team_id == SG_TEAM_ID:
+        save_selection = True
+    else:
+        save_selection = False
+
     output_dict = team_selector.main(
         live=True,
         previous_gw=previous_gw,
         season=season,
-        save_selection=True,
+        save_selection=save_selection,
         fpl_team_id=fpl_team_id,
         fpl_email=fpl_email,
         fpl_password=fpl_password

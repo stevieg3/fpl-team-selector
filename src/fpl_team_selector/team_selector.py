@@ -120,6 +120,10 @@ def main(live, previous_gw, season, save_selection=False, **kwargs):
         previous_team_selection = team_data.get_previous_team_selection()
         budget = team_data.get_budget()
         available_chips = team_data.get_available_chips()
+
+        # Project restart  # TODO Remove after gameweek 30+ (special wildcard for restart)
+        available_chips = ['wildcard']
+
         available_transfers = team_data.get_available_transfers()
 
         logging.info(f"Budget: {budget}")
@@ -311,16 +315,14 @@ def _load_player_predictions(previous_gw, season):
     """
 
     all_predictions = pq.read_table(
-        S3_BUCKET_PATH + GW_PREDICTIONS_SUFFIX + f'/season={season}',
+        S3_BUCKET_PATH + GW_PREDICTIONS_SUFFIX + f'/season={season}' + f'/gw={previous_gw}',
         filesystem=s3_filesystem
     ).to_pandas()
 
     all_predictions['season'] = season
-    all_predictions['gw'] = all_predictions['gw'].astype(int)
+    all_predictions['gw'] = previous_gw
 
-    predictions = all_predictions[
-        (all_predictions['gw'] == previous_gw)
-    ]
+    predictions = all_predictions.copy()
 
     logging.info(f'Using predictions from season {season}, GW {previous_gw}')
 
@@ -366,6 +368,8 @@ def _get_prev_predictions_for_missing_players_in_previous_team(previous_predicti
 def generate_input_dataframe(previous_gw, season, previous_team_selection):
     # TODO Will need to change for GW 1
     current_predictions = _load_player_predictions(previous_gw=previous_gw+1, season=season)
+    logging.info("Top 5 predictions:")
+    logging.info(current_predictions.head())
     previous_predictions = _load_player_predictions(previous_gw=previous_gw, season=season)
 
     previous_team_selection['in_current_team'] = 1
