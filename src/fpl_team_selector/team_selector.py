@@ -188,6 +188,8 @@ def main(live, previous_gw, season, save_selection=False, **kwargs):
     best_permutation = max(results, key=lambda k: results[k][1])  # Team which gets max total points
     logging.info(f"Best permutation: {best_permutation}")
 
+    # TODO Control choice if points prediction is the same for 2 different permutations
+
     # Find chips used:
     chips_used = []
     if best_permutation == 'Wildcard':
@@ -225,6 +227,7 @@ def main(live, previous_gw, season, save_selection=False, **kwargs):
         "transfers": transfers_dict
     }
 
+    # TODO Why didn't this run when no transfers were made?
     if save_selection:
         best_selected_team_df['gw'] = previous_gw + 1
         best_selected_team_df['season'] = season
