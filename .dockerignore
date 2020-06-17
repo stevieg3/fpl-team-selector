@@ -1,0 +1,8 @@
+.env
+example_api_output.json
+*.ipynb
+*.ipynb_checkpoints
+.gitignore
+*.md
+todo.txt
+.git
