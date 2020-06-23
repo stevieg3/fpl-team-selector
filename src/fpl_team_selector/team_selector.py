@@ -121,9 +121,6 @@ def main(live, previous_gw, season, save_selection=False, **kwargs):
         budget = team_data.get_budget()
         available_chips = team_data.get_available_chips()
 
-        # Project restart  # TODO Remove after gameweek 30+ (special wildcard for restart)
-        available_chips = ['wildcard']
-
         available_transfers = team_data.get_available_transfers()
 
         logging.info(f"Budget: {budget}")
