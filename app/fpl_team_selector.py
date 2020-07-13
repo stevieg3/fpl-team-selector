@@ -23,6 +23,16 @@ def api():
     fpl_email = content['fpl_email']
     fpl_password = content['fpl_password']
 
+    try:
+        player_overwrites = content['player_overwrites']
+    except KeyError:
+        player_overwrites = None
+
+    try:
+        team_prediction_scalars = content['team_prediction_scalars']
+    except KeyError:
+        team_prediction_scalars = None
+
     # Only save team selection to S3 if it is my own team
     if fpl_team_id == SG_TEAM_ID:
         save_selection = True
@@ -36,7 +46,9 @@ def api():
         save_selection=save_selection,
         fpl_team_id=fpl_team_id,
         fpl_email=fpl_email,
-        fpl_password=fpl_password
+        fpl_password=fpl_password,
+        player_overwrites=player_overwrites,
+        team_prediction_scalars=team_prediction_scalars
     )
 
     return jsonify(output_dict)

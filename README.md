@@ -24,6 +24,16 @@ There are two endpoints, one for live selections `/api` and one for retrospectiv
     - `fpl_email` - Email for FPL account
     - `fpl_password` - Password for FPL account
     
+    Optional:
+    - `player_overwrites` - Dictionary of player names and _total_ predictions to use for them
+    - `team_prediction_scalars` - Dictionary of team names and scalar to apply to _total_ predictions for all players in that team e.g. if you are worried about Pep's squad rotation set to {"Manchester City": 0.8}
+    
+        __Current teams__:
+        'Manchester City', 'Liverpool', 'Arsenal', 'Wolverhampton Wanderers', 'Everton', 'Aston Villa', 'Leicester City', 
+        'Manchester United', 'Southampton', 'Tottenham Hotspur', 'Chelsea', 'Burnley', 'West Ham United', 'Crystal Palace', 
+        'Sheffield United', 'Watford', 'Norwich City', 'Bournemouth', 'Brighton & Hove Albion', 'Newcastle United'
+   
+    
     ```bash
     curl -X GET "http://0.0.0.0:5000/api" -H "Content-Type: application/json" --data \
     '{"previous_gw":"{previous_gw}", "season":"{season}", "fpl_team_id":"{fpl_team_id}", "fpl_email":"{fpl_email}", "fpl_password":"{fpl_password}"}'

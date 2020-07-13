@@ -110,6 +110,9 @@ def main(live, previous_gw, season, save_selection=False, **kwargs):
         fpl_team_id = kwargs['fpl_team_id']
         fpl_email = kwargs['fpl_email']
         fpl_password = kwargs['fpl_password']
+        # TODO Add to retro?
+        player_overwrites = kwargs['player_overwrites']
+        team_prediction_scalars = kwargs['team_prediction_scalars']
 
         team_data = TeamData(
             fpl_team_id=fpl_team_id,
@@ -147,6 +150,22 @@ def main(live, previous_gw, season, save_selection=False, **kwargs):
         season=season,
         previous_team_selection=previous_team_selection
     )
+
+    # For gameweeks 35 onwards only need to look at 1-4 gameweek predictions in advance:
+    if previous_gw >= 34:
+        for i in range(38-previous_gw+1, 6):
+            current_predictions['predictions'] -= current_predictions[f'GW_plus_{i}']
+
+    # Apply manual player prediction overwrites:
+    if player_overwrites:
+        for player, prediction_overwrite in player_overwrites.items():
+            logging.info(f'Overwriting prediction for {player} with {prediction_overwrite}')
+            current_predictions.loc[current_predictions['name'] == player, 'predictions'] = prediction_overwrite
+
+    # Apply manual team prediction scalars
+    if team_prediction_scalars:
+        for team, prediction_scalar in team_prediction_scalars.items():
+            current_predictions.loc[current_predictions['team_name'] == team, 'predictions'] *= prediction_scalar
 
     results = {}
 
