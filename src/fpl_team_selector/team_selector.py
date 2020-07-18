@@ -31,7 +31,7 @@ Points deducted for each transfer in excess of free transfers.
 
 TeamSelectionCriteria = namedtuple(
     'TeamSelectionCriteria',
-    ['max_permitted_transfers', 'include_top_3', 'include_low_value_player', 'min_spend']
+    ['max_permitted_transfers', 'include_top_3', 'number_of_low_value_players', 'min_spend']
 )
 """
 Named tuple for storing team selection parameters.
@@ -42,28 +42,28 @@ TEAM_SELECTION_PERMUTATIONS = {
     '1 transfer': TeamSelectionCriteria(
         max_permitted_transfers=1,
         include_top_3=False,
-        include_low_value_player=False,
+        number_of_low_value_players=0,
         min_spend=0
     ),
 
     '2 transfer': TeamSelectionCriteria(
         max_permitted_transfers=2,
         include_top_3=False,
-        include_low_value_player=False,
+        number_of_low_value_players=0,
         min_spend=0
     ),
 
     '3 transfer': TeamSelectionCriteria(
         max_permitted_transfers=3,
         include_top_3=False,
-        include_low_value_player=False,
+        number_of_low_value_players=0,
         min_spend=0
     ),
 
     'Wildcard': TeamSelectionCriteria(
         max_permitted_transfers=15,
         include_top_3=False,
-        include_low_value_player=False,
+        number_of_low_value_players=0,
         min_spend=0
     )
 
@@ -182,7 +182,7 @@ def main(live, previous_gw, season, save_selection=False, **kwargs):
             budget_constraint=budget,
             max_permitted_transfers=params.max_permitted_transfers,
             include_top_3=params.include_top_3,
-            include_low_value_player=params.include_low_value_player,
+            number_of_low_value_players=params.number_of_low_value_players,
             min_spend=params.min_spend
         )
 

@@ -12,7 +12,7 @@ def solve_fpl_team_selection_problem(
         budget_constraint,
         max_permitted_transfers=1,
         include_top_3=False,
-        include_low_value_player=False,
+        number_of_low_value_players=0,
         min_spend=0
 ):
     """
@@ -22,7 +22,8 @@ def solve_fpl_team_selection_problem(
     :param budget_constraint: Total budget available
     :param max_permitted_transfers: Maximum number of transfers allowed
     :param include_top_3: Include top 3 players in final squad (identified using `in_top_3` column)
-    :param include_low_value_player: Include low value player in squad (identified using `low_value_player` column)
+    :param number_of_low_value_players: Number of low value players to force into squad (identified using
+    `low_value_player` column)
     :param min_spend: Minimum amount spent on final squad. Use to prevent value of team being too low
 
     :return: DataFrame of selected team
@@ -91,8 +92,9 @@ def solve_fpl_team_selection_problem(
     if include_top_3:
         prob += lpSum(in_top_3[p] * player_vars[p] for p in players) == 3, "Top 3 must be included"
 
-    if include_low_value_player:
-        prob += lpSum(low_value_flag[p] * player_vars[p] for p in players) == 1, "Include 1 low value player"
+    if number_of_low_value_players > 0:
+        prob += lpSum(low_value_flag[p] * player_vars[p] for p in players) == number_of_low_value_players, \
+            "Include X low value players"
 
     if min_spend > 0:
         prob += lpSum([costs[p] * player_vars[p] for p in players]) >= min_spend, "Total cost greater than X"
