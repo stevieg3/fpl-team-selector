@@ -60,10 +60,17 @@ TEAM_SELECTION_PERMUTATIONS = {
         min_spend=0
     ),
 
-    'Wildcard': TeamSelectionCriteria(
+    'wildcard': TeamSelectionCriteria(
         max_permitted_transfers=15,
         include_top_3=False,
         number_of_low_value_players=0,
+        min_spend=0
+    ),
+
+    'freehit': TeamSelectionCriteria(
+        max_permitted_transfers=15,
+        include_top_3=False,
+        number_of_low_value_players=3,
         min_spend=0
     )
 
@@ -169,7 +176,7 @@ def main(live, previous_gw, season, save_selection=False, **kwargs):
 
     results = {}
 
-    permutations = _find_permutations(available_transfers, available_chips)
+    permutations = _find_permutations(available_chips)
 
     logging.info(f'Possible permutations: {permutations}')
 
@@ -191,7 +198,7 @@ def main(live, previous_gw, season, save_selection=False, **kwargs):
         logging.info(f"Transfers made: {transfers_made}")
 
         excess_transfers = int(max(0, transfers_made - available_transfers))
-        if permutation == 'Wildcard':
+        if (permutation == 'wildcard') | (permutation == 'freehit'):
             excess_transfers = 0
         logging.info(f"Excess transfers: {excess_transfers}")
 
@@ -208,8 +215,10 @@ def main(live, previous_gw, season, save_selection=False, **kwargs):
 
     # Find chips used:
     chips_used = []
-    if best_permutation == 'Wildcard':
+    if best_permutation == 'wildcard':
         chips_used = ['wildcard']
+    if best_permutation == 'freehit':
+        chips_used = ['freehit']
 
     # Get starting 11 for best team selection:
     best_selected_team_df = results[best_permutation][0]
@@ -309,19 +318,14 @@ def _create_additional_variables_for_json(best_selected_team_df):
     return best_selected_team_df
 
 
-def _find_permutations(available_transfers, available_chips):
-    # TODO Create test cases for each scenario
-    if (available_transfers == 1) & ('wildcard' in available_chips):
-        permutations = ['1 transfer', '2 transfer', 'Wildcard']
+def _find_permutations(available_chips):
+    """
+    Find team selection permutations to iterate through
 
-    elif (available_transfers == 1) & ('wildcard' not in available_chips):
-        permutations = ['1 transfer', '2 transfer']
-
-    elif (available_transfers == 2) & ('wildcard' in available_chips):
-        permutations = ['1 transfer', '2 transfer', '3 transfer', 'Wildcard']
-
-    elif (available_transfers == 2) & ('wildcard' not in available_chips):
-        permutations = ['1 transfer', '2 transfer', '3 transfer']
+    :param available_chips: List of available FPL chips
+    :return: List of permutations as defined in `TEAM_SELECTION_PERMUTATIONS`
+    """
+    permutations = ['1 transfer', '2 transfer', '3 transfer'] + available_chips
 
     return permutations
 
