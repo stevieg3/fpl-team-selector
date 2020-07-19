@@ -10,7 +10,7 @@ from src.fpl_team_selector import team_selector
 app = Flask(__name__)
 app.config['JSON_AS_ASCII'] = False
 
-SG_TEAM_ID = os.environ['SG_TEAM_ID']
+SG_TEAM_ID = int(os.environ['SG_TEAM_ID'])
 
 # TODO Make API access private
 @app.route('/api', methods=['GET'])

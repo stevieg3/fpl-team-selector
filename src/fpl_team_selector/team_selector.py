@@ -252,7 +252,6 @@ def main(live, previous_gw, season, save_selection=False, **kwargs):
         "transfers": transfers_dict
     }
 
-    # TODO Why didn't this run when no transfers were made?
     if save_selection:
         best_selected_team_df['gw'] = previous_gw + 1
         best_selected_team_df['season'] = season
