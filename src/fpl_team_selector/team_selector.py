@@ -12,6 +12,7 @@ from src.data.s3_utilities import \
     S3_BUCKET_PATH, \
     GW_PREDICTIONS_SUFFIX, \
     write_dataframe_to_s3
+from src.data.latest_fpl_data import get_latest_fpl_cost_and_chance_of_playing
 from src.fpl_team_selector.solvers import \
     solve_starting_11_problem, \
     solve_fpl_team_selection_problem
@@ -169,10 +170,36 @@ def main(live, previous_gw, season, save_selection=False, **kwargs):
             logging.info(f'Overwriting prediction for {player} with {prediction_overwrite}')
             current_predictions.loc[current_predictions['name'] == player, 'predictions'] = prediction_overwrite
 
-    # Apply manual team prediction scalars
+    # Apply manual team prediction scalars:
     if team_prediction_scalars:
         for team, prediction_scalar in team_prediction_scalars.items():
             current_predictions.loc[current_predictions['team_name'] == team, 'predictions'] *= prediction_scalar
+
+    if live:
+        # Get latest player prices and chance of playing next game from FPL API:
+        latest_player_data = get_latest_fpl_cost_and_chance_of_playing()
+        current_predictions = current_predictions.merge(
+            latest_player_data,
+            on='name',
+            how='left'
+        )
+
+        assert current_predictions[['now_cost', 'chance_of_playing_next_round']].isnull().sum().sum() == 0, \
+            'Latest price and chance of playing next game data missing for some players'
+
+        logging.info('Players whose price changed since predictions made')
+        logging.info(
+            current_predictions[
+                current_predictions['now_cost'] != current_predictions['next_match_value']
+            ][
+                ['name', 'next_match_value', 'now_cost']
+            ]
+        )
+
+        # Scale next gameweek predictions by chance of playing
+        current_predictions['GW_plus_1'] *= current_predictions['chance_of_playing_next_round']
+    else:  # retro run
+        current_predictions['now_cost'] = current_predictions['next_match_value'].copy()
 
     results = {}
 

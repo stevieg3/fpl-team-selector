@@ -40,7 +40,8 @@ def solve_fpl_team_selection_problem(
     for team in team_names:
         team_dict[team] = dict(zip(current_predictions['name'], current_predictions[f'team_name_{team}']))
 
-    costs = dict(zip(current_predictions['name'], current_predictions['next_match_value']))
+    # Use latest price not prediction price:
+    costs = dict(zip(current_predictions['name'], current_predictions['now_cost']))
 
     predictions = dict(zip(current_predictions['name'], current_predictions['predictions']))
 
