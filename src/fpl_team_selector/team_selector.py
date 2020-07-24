@@ -201,7 +201,7 @@ def main(live, previous_gw, season, save_selection=False, **kwargs):
     else:  # retro run
         current_predictions['now_cost'] = current_predictions['next_match_value'].copy()
 
-    results = {}
+    final_output = {}
 
     permutations = _find_permutations(available_chips)
 
@@ -231,68 +231,67 @@ def main(live, previous_gw, season, save_selection=False, **kwargs):
 
         total_points -= POINTS_PENALTY * excess_transfers
 
-        results[permutation] = (selected_team_df, total_points)
+        logging.info(f"Total points using permutation {permutation}: {total_points}")
 
-        logging.info(f"Total points using permutation {permutation}: {results[permutation][1]}")
+        # Find chips used:
+        chips_used = []
+        if permutation == 'wildcard':
+            chips_used = ['wildcard']
+        if permutation == 'freehit':
+            chips_used = ['freehit']
 
-    best_permutation = max(results, key=lambda k: results[k][1])  # Team which gets max total points
-    logging.info(f"Best permutation: {best_permutation}")
+        starting_11_names = solve_starting_11_problem(selected_team_df=selected_team_df)
+        starting_11_df = pd.DataFrame({'name': starting_11_names})
+        starting_11_df['in_starting_11'] = 1
 
-    # TODO Control choice if points prediction is the same for 2 different permutations
+        selected_team_df = selected_team_df.merge(starting_11_df, on='name', how='left')
+        selected_team_df['in_starting_11'].fillna(0, inplace=True)
 
-    # Find chips used:
-    chips_used = []
-    if best_permutation == 'wildcard':
-        chips_used = ['wildcard']
-    if best_permutation == 'freehit':
-        chips_used = ['freehit']
+        # Record transfer data:
+        players_out = list(
+            set(previous_team_selection['name']) - set(selected_team_df['name'])
+        )
+        players_in = list(
+            set(selected_team_df['name']) - set(previous_team_selection['name'])
+        )
 
-    # Get starting 11 for best team selection:
-    best_selected_team_df = results[best_permutation][0]
-    starting_11_names = solve_starting_11_problem(selected_team_df=best_selected_team_df)
-    starting_11_df = pd.DataFrame({'name': starting_11_names})
-    starting_11_df['in_starting_11'] = 1
+        _create_additional_variables_for_json(selected_team_df)
 
-    best_selected_team_df = best_selected_team_df.merge(starting_11_df, on='name', how='left')
-    best_selected_team_df['in_starting_11'].fillna(0, inplace=True)
+        best_selected_team_dict = selected_team_df[VARIABLES_FOR_TEAM_SELECTED_JSON].to_dict(orient='records')
 
-    # Record transfer data:
-    players_out = list(
-        set(previous_team_selection['name']) - set(best_selected_team_df['name'])
-    )
-    players_in = list(
-        set(best_selected_team_df['name']) - set(previous_team_selection['name'])
-    )
+        transfers_dict = {
+            'players_in': players_in,
+            'players_out': players_out,
+            'chips_used': chips_used
+        }
 
-    _create_additional_variables_for_json(best_selected_team_df)
+        output_dict = {
+            "team_selected": best_selected_team_dict,
+            "transfers": transfers_dict,
+            "total_points": total_points
+        }
 
-    best_selected_team_dict = best_selected_team_df[VARIABLES_FOR_TEAM_SELECTED_JSON].to_dict(orient='records')
-
-    transfers_dict = {
-        'players_in': players_in,
-        'players_out': players_out,
-        'chips_used': chips_used
-    }
-
-    output_dict = {
-        "team_selected": best_selected_team_dict,
-        "transfers": transfers_dict
-    }
+        final_output[permutation] = output_dict
 
     if save_selection:
-        best_selected_team_df['gw'] = previous_gw + 1
-        best_selected_team_df['season'] = season
+        logging.info('Saving best team')
+        best_permutation = max(
+            final_output,
+            key=lambda k: final_output[k]['total_points']
+        )
+        logging.info(f'Best permutation: {best_permutation}')
+
+        selected_team_df = pd.DataFrame(final_output[best_permutation]['team_selected'])
+        selected_team_df['gw'] = previous_gw + 1
+        selected_team_df['season'] = season
         write_dataframe_to_s3(
-            best_selected_team_df,
+            selected_team_df,
             s3_root_path=S3_BUCKET_PATH + '/gw_team_selections',
             partition_cols=['season', 'gw']
         )
         logging.info("Saved team selection to S3")
 
-    with open('example_api_output.json', 'w') as json_file:
-        json.dump(output_dict, json_file, ensure_ascii=False)
-
-    return output_dict
+    return final_output
 
 
 def _create_additional_variables_for_json(best_selected_team_df):
