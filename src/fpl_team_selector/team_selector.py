@@ -118,7 +118,6 @@ def main(live, previous_gw, season, save_selection=False, **kwargs):
         fpl_team_id = kwargs['fpl_team_id']
         fpl_email = kwargs['fpl_email']
         fpl_password = kwargs['fpl_password']
-        # TODO Add to retro?
         player_overwrites = kwargs['player_overwrites']
         team_prediction_scalars = kwargs['team_prediction_scalars']
 
@@ -143,6 +142,8 @@ def main(live, previous_gw, season, save_selection=False, **kwargs):
         budget = kwargs['budget']
         available_chips = kwargs['available_chips']
         available_transfers = kwargs['available_transfers']
+        player_overwrites = kwargs['player_overwrites']
+        team_prediction_scalars = kwargs['team_prediction_scalars']
 
         previous_team_selection = pq.read_table(
             previous_team_selection_path,

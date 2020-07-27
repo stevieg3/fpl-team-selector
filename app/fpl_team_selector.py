@@ -86,6 +86,16 @@ def retro():
     except KeyError:
         save_selection = False
 
+    try:
+        player_overwrites = content['player_overwrites']
+    except KeyError:
+        player_overwrites = {}
+
+    try:
+        team_prediction_scalars = content['team_prediction_scalars']
+    except KeyError:
+        team_prediction_scalars = {}
+
     output_dict = team_selector.main(
         live=False,
         previous_gw=previous_gw,
@@ -94,7 +104,9 @@ def retro():
         previous_team_selection_path=previous_team_selection_path,
         budget=budget,
         available_chips=available_chips,
-        available_transfers=available_transfers
+        available_transfers=available_transfers,
+        player_overwrites=player_overwrites,
+        team_prediction_scalars=team_prediction_scalars
     )
 
     return jsonify(output_dict)
