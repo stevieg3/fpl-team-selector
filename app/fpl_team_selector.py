@@ -12,17 +12,28 @@ app.config['JSON_AS_ASCII'] = False
 
 SG_TEAM_ID = int(os.environ['SG_TEAM_ID'])
 
+NON_OPTIONAL_PAYLOAD_PARAMS_LIVE = ['previous_gw', 'season', 'fpl_team_id', 'fpl_email', 'fpl_password']
+
+NON_OPTIONAL_PAYLOAD_PARAMS_RETRO = [
+    'previous_gw', 'season', 'previous_team_selection_path', 'budget', 'available_chips', 'available_transfers'
+]
+
 # TODO Make API access private
 @app.route('/api', methods=['GET'])
 def api():
     content = request.get_json()
 
-    previous_gw = int(content['previous_gw'])
+    # Non-optional parameters
+    for param in NON_OPTIONAL_PAYLOAD_PARAMS_LIVE:
+        assert param in content.keys(), f'{param} not provided in payload'
+
+    previous_gw = content['previous_gw']
     season = content['season']
-    fpl_team_id = int(content['fpl_team_id'])
+    fpl_team_id = content['fpl_team_id']
     fpl_email = content['fpl_email']
     fpl_password = content['fpl_password']
 
+    # Optional parameters
     try:
         player_overwrites = content['player_overwrites']
     except KeyError:
@@ -58,18 +69,28 @@ def api():
 def retro():
     content = request.get_json()
 
-    previous_gw = int(content['previous_gw'])
+    # Non-optional parameters
+    for param in NON_OPTIONAL_PAYLOAD_PARAMS_RETRO:
+        assert param in content.keys(), f'{param} not provided in payload'
+
+    previous_gw = content['previous_gw']
     season = content['season']
     previous_team_selection_path = content['previous_team_selection_path']
-    budget = float(content['budget'])
-    available_chips = list(content['available_chips'])
-    available_transfers = int(content['available_transfers'])
+    budget = content['budget']
+    available_chips = content['available_chips']
+    available_transfers = content['available_transfers']
+
+    # Optional parameters
+    try:
+        save_selection = content['save_selection']
+    except KeyError:
+        save_selection = False
 
     output_dict = team_selector.main(
         live=False,
         previous_gw=previous_gw,
         season=season,
-        save_selection=False,
+        save_selection=save_selection,
         previous_team_selection_path=previous_team_selection_path,
         budget=budget,
         available_chips=available_chips,
