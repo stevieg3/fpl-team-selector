@@ -94,7 +94,7 @@ def solve_fpl_team_selection_problem(
         prob += lpSum(in_top_3[p] * player_vars[p] for p in players) == 3, "Top 3 must be included"
 
     if number_of_low_value_players > 0:
-        prob += lpSum(low_value_flag[p] * player_vars[p] for p in players) == number_of_low_value_players, \
+        prob += lpSum(low_value_flag[p] * player_vars[p] for p in players) >= number_of_low_value_players, \
             "Include X low value players"
 
     if min_spend > 0:

@@ -1,6 +1,5 @@
 import logging
 from collections import namedtuple
-import json
 
 import pandas as pd
 import numpy as np
@@ -71,7 +70,14 @@ TEAM_SELECTION_PERMUTATIONS = {
     'freehit': TeamSelectionCriteria(
         max_permitted_transfers=15,
         include_top_3=False,
-        number_of_low_value_players=3,
+        number_of_low_value_players=0,
+        min_spend=0
+    ),
+
+    'new_team': TeamSelectionCriteria(
+        max_permitted_transfers=15,
+        include_top_3=False,
+        number_of_low_value_players=0,
         min_spend=0
     )
 
@@ -96,10 +102,26 @@ VARIABLES_FOR_TEAM_SELECTED_JSON = [
     'GW_plus_3',
     'GW_plus_4',
     'GW_plus_5',
-    'predictions'
+    'predictions',
+    'now_cost',
+    'purchase_price',
+    'gw_introduced_in',
+    'in_current_team'
 ]
 """
 Variables to include in team selected JSON.
+"""
+
+
+SEASON_ORDER_DICT = {
+    '2016-17': 1,
+    '2017-18': 2,
+    '2018-19': 3,
+    '2019-20': 4,
+    '2020-21': 5
+}
+"""
+Order of seasons
 """
 
 
@@ -115,29 +137,37 @@ def main(live, previous_gw, season, save_selection=False, **kwargs):
     """
 
     if live:
+        logging.info('Working on live run')
         fpl_team_id = kwargs['fpl_team_id']
         fpl_email = kwargs['fpl_email']
         fpl_password = kwargs['fpl_password']
         player_overwrites = kwargs['player_overwrites']
         team_prediction_scalars = kwargs['team_prediction_scalars']
 
-        team_data = TeamData(
-            fpl_team_id=fpl_team_id,
-            fpl_email=fpl_email,
-            fpl_password=fpl_password
-        )
+        if previous_gw == 38:
+            # New team selection
+            previous_team_selection = pd.DataFrame({'name': []})
+            budget = 100
+            available_chips = ['new_team']
+            available_transfers = 15
+        else:
+            team_data = TeamData(
+                fpl_team_id=fpl_team_id,
+                fpl_email=fpl_email,
+                fpl_password=fpl_password
+            )
 
-        previous_team_selection = team_data.get_previous_team_selection()
-        budget = team_data.get_budget()
-        available_chips = team_data.get_available_chips()
-
-        available_transfers = team_data.get_available_transfers()
+            previous_team_selection = team_data.get_previous_team_selection()
+            budget = team_data.get_budget()
+            available_chips = team_data.get_available_chips()
+            available_transfers = team_data.get_available_transfers()
 
         logging.info(f"Budget: {budget}")
         logging.info(f"Available chips: {available_chips}")
         logging.info(f"Available transfers: {available_transfers}")
 
     else:  # retro run
+        logging.info('Working on retro run')
         previous_team_selection_path = kwargs['previous_team_selection_path']
         budget = kwargs['budget']
         available_chips = kwargs['available_chips']
@@ -145,10 +175,13 @@ def main(live, previous_gw, season, save_selection=False, **kwargs):
         player_overwrites = kwargs['player_overwrites']
         team_prediction_scalars = kwargs['team_prediction_scalars']
 
-        previous_team_selection = pq.read_table(
-            previous_team_selection_path,
-            filesystem=s3_filesystem
-        ).to_pandas()
+        if previous_gw == 38:
+            previous_team_selection = pd.DataFrame({'name': []})  # Create empty DataFrame to enable transfers in/out
+        else:
+            previous_team_selection = pq.read_table(
+                previous_team_selection_path,
+                filesystem=s3_filesystem
+            ).to_pandas()
 
         logging.info(f"Budget: {budget}")
         logging.info(f"Available chips: {available_chips}")
@@ -161,7 +194,7 @@ def main(live, previous_gw, season, save_selection=False, **kwargs):
     )
 
     # For gameweeks 35 onwards only need to look at 1-4 gameweek predictions in advance:
-    if previous_gw >= 34:
+    if (previous_gw >= 34) and (previous_gw != 38):
         for i in range(38-previous_gw+1, 6):
             current_predictions['predictions'] -= current_predictions[f'GW_plus_{i}']
 
@@ -179,11 +212,22 @@ def main(live, previous_gw, season, save_selection=False, **kwargs):
     if live:
         # Get latest player prices and chance of playing next game from FPL API:
         latest_player_data = get_latest_fpl_cost_and_chance_of_playing()
+        current_predictions.drop('_merge', axis=1, inplace=True)
         current_predictions = current_predictions.merge(
             latest_player_data,
             on='name',
-            how='left'
+            how='left',
+            indicator=True
         )
+
+        logging.info(current_predictions['_merge'].value_counts())
+        players_without_latest_price = current_predictions[current_predictions['_merge'] == 'left_only']['name']
+
+        logging.info(f'Players without latest price: {players_without_latest_price}')
+
+        logging.info('Only keeping players with latest price')  # Likely due to being transferred
+        current_predictions = current_predictions[current_predictions['_merge'] == 'both']
+        current_predictions.drop('_merge', axis=1, inplace=True)
 
         assert current_predictions[['now_cost', 'chance_of_playing_next_round']].isnull().sum().sum() == 0, \
             'Latest price and chance of playing next game data missing for some players'
@@ -258,6 +302,25 @@ def main(live, previous_gw, season, save_selection=False, **kwargs):
 
         _create_additional_variables_for_json(selected_team_df)
 
+        # Record purchase_price and gw_introduced_in
+
+        if selected_team_df['in_current_team'].sum() == 0:
+            selected_team_df['purchase_price'] = selected_team_df['now_cost'].copy()
+            if previous_gw == 38:  # new team
+                selected_team_df['gw_introduced_in'] = 1
+            else:  # e.g. wildcard mid season which replaces full team
+                selected_team_df['gw_introduced_in'] = previous_gw + 1
+        else:
+            selected_team_df.loc[
+                selected_team_df['in_current_team'] == 0,
+                'purchase_price'
+            ] = selected_team_df['now_cost']
+
+            selected_team_df.loc[
+                selected_team_df['in_current_team'] == 0,
+                'gw_introduced_in'
+            ] = previous_gw + 1
+
         best_selected_team_dict = selected_team_df[VARIABLES_FOR_TEAM_SELECTED_JSON].to_dict(orient='records')
 
         transfers_dict = {
@@ -282,14 +345,22 @@ def main(live, previous_gw, season, save_selection=False, **kwargs):
         )
         logging.info(f'Best permutation: {best_permutation}')
 
+        if previous_gw == 38:
+            # First gameweek of the season
+            season_order = SEASON_ORDER_DICT[season]
+            season = {v: k for k, v in SEASON_ORDER_DICT.items()}[season_order + 1]
+            previous_gw = 0
+
         selected_team_df = pd.DataFrame(final_output[best_permutation]['team_selected'])
         selected_team_df['gw'] = previous_gw + 1
         selected_team_df['season'] = season
         write_dataframe_to_s3(
             selected_team_df,
             s3_root_path=S3_BUCKET_PATH + '/gw_team_selections',
-            partition_cols=['season', 'gw']
+            partition_cols=['season', 'gw'],
+            partition_filename_cb=lambda x: f'{x[0]}-{x[1]}.parquet'
         )
+        logging.info(selected_team_df)
         logging.info("Saved team selection to S3")
 
     return final_output
@@ -351,7 +422,11 @@ def _find_permutations(available_chips):
     :param available_chips: List of available FPL chips
     :return: List of permutations as defined in `TEAM_SELECTION_PERMUTATIONS`
     """
-    permutations = ['1 transfer', '2 transfer', '3 transfer'] + available_chips
+
+    if 'new_team' in available_chips:
+        permutations = ['new_team']
+    else:
+        permutations = ['1 transfer', '2 transfer', '3 transfer'] + available_chips
 
     return permutations
 
@@ -415,34 +490,63 @@ def _get_prev_predictions_for_missing_players_in_previous_team(previous_predicti
 
 
 def generate_input_dataframe(previous_gw, season, previous_team_selection):
-    # TODO Will need to change for GW 1
-    current_predictions = _load_player_predictions(previous_gw=previous_gw+1, season=season)
-    logging.info("Top 5 predictions:")
-    logging.info(current_predictions.head())
-    previous_predictions = _load_player_predictions(previous_gw=previous_gw, season=season)
+    if previous_gw == 38:
+        # First gameweek of the season
+        season_order = SEASON_ORDER_DICT[season]
+        next_season = {v: k for k, v in SEASON_ORDER_DICT.items()}[season_order + 1]
 
-    previous_team_selection['in_current_team'] = 1
-    previous_team_selection_names = previous_team_selection.copy()[['name', 'in_current_team']]
+        current_predictions = _load_player_predictions(previous_gw=1, season=next_season)
+        current_predictions['in_current_team'] = 0  # Needed for solver
 
-    current_predictions_for_prev_team = current_predictions.merge(previous_team_selection_names, on='name', how='inner')
+        # Drop nulls due to players who left after end of season otherwise solver will error:
+        current_predictions['drop_row'] = np.where(
+            (current_predictions['gw'] == 1) & (current_predictions['predictions'].isnull()),
+            1,
+            0
+        )
+        current_predictions = current_predictions[current_predictions['drop_row'] == 0]
+        current_predictions.drop('drop_row', axis=1, inplace=True)
 
-    # Players without predictions will still be in current data but will have a null value
-    if current_predictions_for_prev_team['predictions'].isnull().sum() != 0:
-        logging.info('Some players missing')
-        # Players not playing in next GW still appear but have null values for points predictions and next match value
-        current_predictions.dropna(axis=0, how='any', inplace=True)
+    else:
+        current_predictions = _load_player_predictions(previous_gw=previous_gw+1, season=season)
+        logging.info("Top 5 predictions:")
+        logging.info(current_predictions.head())
+        previous_predictions = _load_player_predictions(previous_gw=previous_gw, season=season)
 
-        previous_predictions_missing_players = _get_prev_predictions_for_missing_players_in_previous_team(
-            previous_predictions=previous_predictions,
-            current_predictions_for_prev_team=current_predictions_for_prev_team
+        previous_team_selection['in_current_team'] = 1
+        previous_team_selection_names = previous_team_selection.copy()[
+            ['name', 'in_current_team', 'purchase_price', 'gw_introduced_in']
+        ]
+
+        current_predictions_for_prev_team = current_predictions.merge(
+            previous_team_selection_names,
+            on='name',
+            how='inner'
         )
 
-        # Append previous predictions for missing players who are in current team:
-        current_predictions = current_predictions.append(previous_predictions_missing_players)
+        # Players without predictions will still be in current data but will have a null value
+        if current_predictions_for_prev_team['predictions'].isnull().sum() != 0:
+            logging.info('Some players missing')
+            # Players not playing in next GW still appear but have null values for points predictions and next match
+            # value
+            current_predictions.dropna(axis=0, how='any', inplace=True)
 
-    current_predictions = current_predictions.merge(previous_team_selection, on='name', how='left')
-    current_predictions['in_current_team'] = current_predictions['in_current_team'].fillna(0)
-    assert current_predictions['in_current_team'].sum() == 15, 'Not all players in current team have points predictions'
+            previous_predictions_missing_players = _get_prev_predictions_for_missing_players_in_previous_team(
+                previous_predictions=previous_predictions,
+                current_predictions_for_prev_team=current_predictions_for_prev_team
+            )
+
+            # Append previous predictions for missing players who are in current team:
+            current_predictions = current_predictions.append(previous_predictions_missing_players)
+
+        current_predictions = current_predictions.merge(previous_team_selection_names, on='name', how='left')
+        current_predictions['in_current_team'] = current_predictions['in_current_team'].fillna(0)
+
+        assert current_predictions['in_current_team'].sum() == 15, \
+            'Not all players in current team have points predictions'
+        # TODO Assertion will fail for players who leave mid season but are in current team. Need to accommodate. Not
+        #  urgent because players selected are likely to be important to their respective team and less likely to be
+        #  sold mid-season.
 
     # Create top 3 flag:
     current_predictions.loc[0:2, 'in_top_3'] = 1

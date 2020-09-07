@@ -20,7 +20,7 @@ s3_filesystem = S3FileSystem(
 )
 
 
-def write_dataframe_to_s3(df, s3_root_path, partition_cols, filesystem=s3_filesystem):
+def write_dataframe_to_s3(df, s3_root_path, partition_cols, filesystem=s3_filesystem, partition_filename_cb=None):
     """
     Write Pandas DataFrame as parquet file in S3.
 
@@ -39,5 +39,6 @@ def write_dataframe_to_s3(df, s3_root_path, partition_cols, filesystem=s3_filesy
         arrow_table,
         root_path=s3_root_path,
         partition_cols=partition_cols,
-        filesystem=filesystem
+        filesystem=filesystem,
+        partition_filename_cb=partition_filename_cb
     )

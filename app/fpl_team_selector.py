@@ -18,7 +18,7 @@ NON_OPTIONAL_PAYLOAD_PARAMS_RETRO = [
     'previous_gw', 'season', 'previous_team_selection_path', 'budget', 'available_chips', 'available_transfers'
 ]
 
-# TODO Make API access private
+
 @app.route('/api', methods=['GET'])
 def api():
     content = request.get_json()

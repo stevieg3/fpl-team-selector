@@ -1,5 +1,6 @@
 import json
 import urllib
+import unidecode
 
 import pandas as pd
 
@@ -49,6 +50,11 @@ def get_latest_fpl_cost_and_chance_of_playing():
     # Processing step needed before using PuLP
     players_raw['name'] = players_raw['name'].str.replace(' ', '_')
     players_raw['name'] = players_raw['name'].str.replace('-', '_')
+
+    # Apply same step used to enable join between FPL and FFS data
+    players_raw['name'] = players_raw['name'].str.replace(' ', '_').apply(
+        lambda string: unidecode.unidecode(string)
+    )
 
     players_raw['chance_of_playing_next_round'].fillna(CHANCE_OF_PLAYING_NEXT_ROUND_NULL_IMPUTATION, inplace=True)
 
