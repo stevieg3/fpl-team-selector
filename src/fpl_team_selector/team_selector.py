@@ -106,7 +106,8 @@ VARIABLES_FOR_TEAM_SELECTED_JSON = [
     'now_cost',
     'purchase_price',
     'gw_introduced_in',
-    'in_current_team'
+    'in_current_team',
+    'model'
 ]
 """
 Variables to include in team selected JSON.

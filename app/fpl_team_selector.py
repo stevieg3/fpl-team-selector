@@ -29,7 +29,7 @@ def api():
 
     previous_gw = content['previous_gw']
     season = content['season']
-    fpl_team_id = content['fpl_team_id']
+    fpl_team_id = int(content['fpl_team_id'])
     fpl_email = content['fpl_email']
     fpl_password = content['fpl_password']
 
