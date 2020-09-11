@@ -2,7 +2,7 @@
 
 API to assist with team selection for the official Fantasy Premier League game (https://fantasy.premierleague.com/). Analyses existing team and recommends transfers for upcoming gameweek given a set of player predictions.
 
-## User guide
+## API guide
 
 There are two endpoints, one for live selections `/api` and one for retrospective selections `/retro`
 
@@ -25,13 +25,13 @@ There are two endpoints, one for live selections `/api` and one for retrospectiv
     - `fpl_password` - Password for FPL account
     
     Optional:
-    - `player_overwrites` - Dictionary of player names and _total_ predictions to use for them
+    - `player_overwrites` - Dictionary of player names and _total_ predictions to use for them. Chance of playing next round provided by FPL already incorporated in predictions as a scalar.
     - `team_prediction_scalars` - Dictionary of team names and scalar to apply to _total_ predictions for all players in that team e.g. if you are worried about Pep's squad rotation set to {"Manchester City": 0.8}
     
         __Current teams__:
         'Manchester City', 'Liverpool', 'Arsenal', 'Wolverhampton Wanderers', 'Everton', 'Aston Villa', 'Leicester City', 
         'Manchester United', 'Southampton', 'Tottenham Hotspur', 'Chelsea', 'Burnley', 'West Ham United', 'Crystal Palace', 
-        'Sheffield United', 'Watford', 'Norwich City', 'Bournemouth', 'Brighton & Hove Albion', 'Newcastle United'
+        'Sheffield United', 'West Bromwich Albion', 'Leeds', 'Fulham', 'Brighton & Hove Albion', 'Newcastle United'
    
     
     ```bash
