@@ -429,6 +429,9 @@ def _find_permutations(available_chips):
     else:
         permutations = ['1 transfer', '2 transfer', '3 transfer'] + available_chips
 
+    permutations.remove('bboost')
+    permutations.remove('3xc')
+
     return permutations
 
 
@@ -515,9 +518,16 @@ def generate_input_dataframe(previous_gw, season, previous_team_selection):
         previous_predictions = _load_player_predictions(previous_gw=previous_gw, season=season)
 
         previous_team_selection['in_current_team'] = 1
-        previous_team_selection_names = previous_team_selection.copy()[
-            ['name', 'in_current_team', 'purchase_price', 'gw_introduced_in']
-        ]
+
+        if 'gw_introduced_in' in previous_team_selection.columns:  # Only needed for retro budget calculations. Will be
+            # in team selection saved to S3
+            previous_team_selection_names = previous_team_selection.copy()[
+                ['name', 'in_current_team', 'purchase_price', 'gw_introduced_in']
+            ]
+        else:
+            previous_team_selection_names = previous_team_selection.copy()[
+                ['name', 'in_current_team', 'purchase_price']
+            ]
 
         current_predictions_for_prev_team = current_predictions.merge(
             previous_team_selection_names,

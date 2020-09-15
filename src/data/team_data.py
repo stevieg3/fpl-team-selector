@@ -3,6 +3,7 @@ import json
 import pandas as pd
 import numpy as np
 import requests
+import unidecode
 
 FPL_LOGIN_URL = 'https://users.premierleague.com/accounts/login/'
 """
@@ -147,5 +148,10 @@ def _add_player_names(team_data_df, player_data_df):
     combined['name'] = combined['name'].str.lower()
     combined['name'] = combined['name'].str.replace(' ', '_')
     combined['name'] = combined['name'].str.replace('-', '_')
+
+    # Apply same step used to enable join between FPL and FFS data
+    combined['name'] = combined['name'].str.replace(' ', '_').apply(
+        lambda string: unidecode.unidecode(string)
+    )
 
     return combined
