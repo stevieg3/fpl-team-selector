@@ -129,7 +129,7 @@ def solve_fpl_team_selection_problem(
 
 def solve_starting_11_problem(selected_team_df):
     """
-    Use PuLP to select the starting 11 which maximises total predicted points subject to constraints.
+    Use PuLP to select the starting 11 which maximises next fixture points subject to constraints.
 
     :param selected_team_df: DataFrame of players in selected team
     :return: List of starting 11 players
@@ -140,7 +140,7 @@ def solve_starting_11_problem(selected_team_df):
 
     # CREATE NAME-VALUE DICTIONARIES FOR USE IN CONSTRAINTS
 
-    predictions = dict(zip(selected_team['name'], selected_team['predictions']))
+    predictions = dict(zip(selected_team['name'], selected_team['GW_plus_1']))
 
     DEF_flag = dict(zip(selected_team['name'], selected_team['position_DEF']))
 
