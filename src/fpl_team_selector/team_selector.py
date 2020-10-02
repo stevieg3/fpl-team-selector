@@ -244,8 +244,22 @@ def main(live, previous_gw, season, save_selection=False, **kwargs):
 
         # Scale next gameweek predictions by chance of playing
         current_predictions['GW_plus_1'] *= current_predictions['chance_of_playing_next_round']
+
+        # For players in current team the cost of 'buying them back' is the selling price:
+        current_predictions['now_cost'] = np.where(
+            current_predictions['in_current_team'] == 1,
+            current_predictions['selling_price'],
+            current_predictions['now_cost']
+        )
     else:  # retro run
         current_predictions['now_cost'] = current_predictions['next_match_value'].copy()
+
+        # For players in current team the cost of 'buying them back' is the selling price:
+        current_predictions['now_cost'] = np.where(
+            current_predictions['in_current_team'] == 1,
+            current_predictions['selling_price'],
+            current_predictions['now_cost']
+        )
 
     final_output = {}
 
@@ -522,11 +536,11 @@ def generate_input_dataframe(previous_gw, season, previous_team_selection):
         if 'gw_introduced_in' in previous_team_selection.columns:  # Only needed for retro budget calculations. Will be
             # in team selection saved to S3
             previous_team_selection_names = previous_team_selection.copy()[
-                ['name', 'in_current_team', 'purchase_price', 'gw_introduced_in']
+                ['name', 'in_current_team', 'purchase_price', 'gw_introduced_in', 'selling_price']
             ]
         else:
             previous_team_selection_names = previous_team_selection.copy()[
-                ['name', 'in_current_team', 'purchase_price']
+                ['name', 'in_current_team', 'purchase_price', 'selling_price']
             ]
 
         current_predictions_for_prev_team = current_predictions.merge(
