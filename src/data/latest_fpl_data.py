@@ -3,6 +3,7 @@ import urllib
 import unidecode
 
 import pandas as pd
+import numpy as np
 
 BOOTSTRAP_STATIC_URL = "https://fantasy.premierleague.com/api/bootstrap-static/"
 """
@@ -61,5 +62,7 @@ def get_latest_fpl_cost_and_chance_of_playing():
     players_raw['now_cost'] /= VALUE_MULTIPLE
 
     players_raw['chance_of_playing_next_round'] /= 100  # Convert from % to decimal
+
+    players_raw['chance_of_playing_next_round'] = np.round(players_raw['chance_of_playing_next_round'], 1)
 
     return players_raw[['name', 'now_cost', 'chance_of_playing_next_round']]

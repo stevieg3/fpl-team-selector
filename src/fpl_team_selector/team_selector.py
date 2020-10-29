@@ -42,28 +42,28 @@ TEAM_SELECTION_PERMUTATIONS = {
     '1 transfer': TeamSelectionCriteria(
         max_permitted_transfers=1,
         include_top_3=False,
-        number_of_low_value_players=0,
+        number_of_low_value_players=1,
         min_spend=0
     ),
 
     '2 transfer': TeamSelectionCriteria(
         max_permitted_transfers=2,
         include_top_3=False,
-        number_of_low_value_players=0,
+        number_of_low_value_players=1,
         min_spend=0
     ),
 
     '3 transfer': TeamSelectionCriteria(
         max_permitted_transfers=3,
         include_top_3=False,
-        number_of_low_value_players=0,
+        number_of_low_value_players=1,
         min_spend=0
     ),
 
     'wildcard': TeamSelectionCriteria(
         max_permitted_transfers=15,
         include_top_3=False,
-        number_of_low_value_players=0,
+        number_of_low_value_players=1,
         min_spend=0
     ),
 
@@ -204,6 +204,8 @@ def main(live, previous_gw, season, save_selection=False, **kwargs):
         for player, prediction_overwrite in player_overwrites.items():
             logging.info(f'Overwriting prediction for {player} with {prediction_overwrite}')
             current_predictions.loc[current_predictions['name'] == player, 'predictions'] = prediction_overwrite
+    else:
+        player_overwrites = {}
 
     # Apply manual team prediction scalars:
     if team_prediction_scalars:
@@ -244,6 +246,14 @@ def main(live, previous_gw, season, save_selection=False, **kwargs):
 
         # Scale next gameweek predictions by chance of playing
         current_predictions['GW_plus_1'] *= current_predictions['chance_of_playing_next_round']
+        current_predictions['predictions'] = np.where(
+            (current_predictions['chance_of_playing_next_round'] == 1) |
+            (current_predictions['name'].isin(player_overwrites.keys())),
+            current_predictions['predictions'],  # Keep existing predictions if 100% chance of playing
+            current_predictions[  # Update predictions if chance of playing not 100%
+                ['GW_plus_1', 'GW_plus_2', 'GW_plus_3', 'GW_plus_4', 'GW_plus_5']
+            ].sum(axis=1)
+        )
 
         # For players in current team the cost of 'buying them back' is the selling price:
         current_predictions['now_cost'] = np.where(
