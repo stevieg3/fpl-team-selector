@@ -39,38 +39,80 @@ Named tuple for storing team selection parameters.
 
 TEAM_SELECTION_PERMUTATIONS = {
 
+    '0 transfer': TeamSelectionCriteria(
+        max_permitted_transfers=0,
+        include_top_3=False,
+        number_of_low_value_players=0,
+        min_spend=0
+    ),
+
     '1 transfer': TeamSelectionCriteria(
         max_permitted_transfers=1,
         include_top_3=False,
-        number_of_low_value_players=1,
+        number_of_low_value_players=0,
         min_spend=0
     ),
 
     '2 transfer': TeamSelectionCriteria(
         max_permitted_transfers=2,
         include_top_3=False,
-        number_of_low_value_players=1,
+        number_of_low_value_players=0,
         min_spend=0
     ),
 
     '3 transfer': TeamSelectionCriteria(
         max_permitted_transfers=3,
         include_top_3=False,
-        number_of_low_value_players=1,
+        number_of_low_value_players=0,
+        min_spend=0
+    ),
+
+    '4 transfer': TeamSelectionCriteria(
+        max_permitted_transfers=4,
+        include_top_3=False,
+        number_of_low_value_players=0,
+        min_spend=0
+    ),
+
+    '5 transfer': TeamSelectionCriteria(
+            max_permitted_transfers=5,
+            include_top_3=False,
+            number_of_low_value_players=0,
+            min_spend=0
+        ),
+
+    '6 transfer': TeamSelectionCriteria(
+            max_permitted_transfers=6,
+            include_top_3=False,
+            number_of_low_value_players=0,
+            min_spend=0
+        ),
+
+    '7 transfer': TeamSelectionCriteria(
+        max_permitted_transfers=7,
+        include_top_3=False,
+        number_of_low_value_players=0,
+        min_spend=0
+    ),
+
+    '8 transfer': TeamSelectionCriteria(
+        max_permitted_transfers=8,
+        include_top_3=False,
+        number_of_low_value_players=0,
         min_spend=0
     ),
 
     'wildcard': TeamSelectionCriteria(
         max_permitted_transfers=15,
         include_top_3=False,
-        number_of_low_value_players=1,
+        number_of_low_value_players=2,
         min_spend=0
     ),
 
     'freehit': TeamSelectionCriteria(
         max_permitted_transfers=15,
         include_top_3=False,
-        number_of_low_value_players=0,
+        number_of_low_value_players=3,
         min_spend=0
     ),
 
@@ -271,6 +313,14 @@ def main(live, previous_gw, season, save_selection=False, **kwargs):
             current_predictions['now_cost']
         )
 
+    # TODO Make into a parameter (use new model only):
+    current_predictions['model'] = np.where(
+        current_predictions['in_current_team'],
+        'DeepFantasyFootball_v02',
+        current_predictions['model']
+    )
+    current_predictions = current_predictions[current_predictions['model'] == 'DeepFantasyFootball_v02']
+
     final_output = {}
 
     permutations = _find_permutations(available_chips)
@@ -451,10 +501,18 @@ def _find_permutations(available_chips):
     if 'new_team' in available_chips:
         permutations = ['new_team']
     else:
-        permutations = ['1 transfer', '2 transfer', '3 transfer'] + available_chips
+        permutations = [
+                           '0 transfer', '1 transfer', '2 transfer', '3 transfer', '4 transfer', '5 transfer', '6 transfer', '7 transfer', '8 transfer'
+                       ] + available_chips
 
-    permutations.remove('bboost')
-    permutations.remove('3xc')
+    try:
+        permutations.remove('bboost')
+    except ValueError:
+        pass
+    try:
+        permutations.remove('3xc')
+    except ValueError:
+        pass
 
     return permutations
 
