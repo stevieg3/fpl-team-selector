@@ -161,7 +161,8 @@ SEASON_ORDER_DICT = {
     '2017-18': 2,
     '2018-19': 3,
     '2019-20': 4,
-    '2020-21': 5
+    '2020-21': 5,
+    '2021-22': 6
 }
 """
 Order of seasons
@@ -236,11 +237,6 @@ def main(live, previous_gw, season, save_selection=False, **kwargs):
         previous_team_selection=previous_team_selection
     )
 
-    # For gameweeks 35 onwards only need to look at 1-4 gameweek predictions in advance:
-    if (previous_gw >= 34) and (previous_gw != 38):
-        for i in range(38-previous_gw+1, 6):
-            current_predictions['predictions'] -= current_predictions[f'GW_plus_{i}']
-
     # Apply manual player prediction overwrites:
     if player_overwrites:
         for player, prediction_overwrite in player_overwrites.items():
@@ -297,6 +293,11 @@ def main(live, previous_gw, season, save_selection=False, **kwargs):
             ].sum(axis=1)
         )
 
+        # For gameweeks 35 onwards only need to look at 1-4 gameweek predictions in advance:
+        if (previous_gw >= 34) and (previous_gw != 38):
+            for i in range(38-previous_gw+1, 6):
+                current_predictions['predictions'] -= current_predictions[f'GW_plus_{i}']
+
         # For players in current team the cost of 'buying them back' is the selling price:
         current_predictions['now_cost'] = np.where(
             current_predictions['in_current_team'] == 1,
@@ -316,10 +317,10 @@ def main(live, previous_gw, season, save_selection=False, **kwargs):
     # TODO Make into a parameter (use new model only):
     current_predictions['model'] = np.where(
         current_predictions['in_current_team'],
-        'DeepFantasyFootball_v02',
+        'DeepFantasyFootball_v01',
         current_predictions['model']
     )
-    current_predictions = current_predictions[current_predictions['model'] == 'DeepFantasyFootball_v02']
+    current_predictions = current_predictions[current_predictions['model'] == 'DeepFantasyFootball_v01']
 
     final_output = {}
 
@@ -597,7 +598,7 @@ def generate_input_dataframe(previous_gw, season, previous_team_selection):
         current_predictions = _load_player_predictions(previous_gw=previous_gw+1, season=season)
         logging.info("Top 5 predictions:")
         logging.info(current_predictions.head())
-        previous_predictions = _load_player_predictions(previous_gw=previous_gw, season=season)
+        # previous_predictions = _load_player_predictions(previous_gw=previous_gw, season=season)  # TODO Undo
 
         previous_team_selection['in_current_team'] = 1
 
@@ -624,13 +625,13 @@ def generate_input_dataframe(previous_gw, season, previous_team_selection):
             # value
             current_predictions.dropna(axis=0, how='any', inplace=True)
 
-            previous_predictions_missing_players = _get_prev_predictions_for_missing_players_in_previous_team(
-                previous_predictions=previous_predictions,
-                current_predictions_for_prev_team=current_predictions_for_prev_team
-            )
+            # previous_predictions_missing_players = _get_prev_predictions_for_missing_players_in_previous_team(  # TODO Undo
+            #     previous_predictions=previous_predictions,
+            #     current_predictions_for_prev_team=current_predictions_for_prev_team
+            # )
 
             # Append previous predictions for missing players who are in current team:
-            current_predictions = current_predictions.append(previous_predictions_missing_players)
+            # current_predictions = current_predictions.append(previous_predictions_missing_players)  # TODO Undo
 
         current_predictions = current_predictions.merge(previous_team_selection_names, on='name', how='left')
         current_predictions['in_current_team'] = current_predictions['in_current_team'].fillna(0)
